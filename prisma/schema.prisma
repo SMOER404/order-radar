@@ -1,0 +1,78 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Source {
+  FL
+  KWORK
+  TELEGRAM
+}
+
+enum OrderStatus {
+  NEW           // только что собран
+  FILTERED_OUT  // отсеян: стоп-слово, нет ключевых слов, дубликат, старый
+  PASSED        // прошёл фильтры, ждёт LLM
+  SCORED        // оценён LLM, ещё не отправлен
+  REJECTED      // LLM/ставка сказали «не подходит», в бота не шлём
+  NOTIFIED      // отправлен в бота, ждёт решения
+  INTERESTING   // нажато «интересно»
+  SKIPPED       // нажато «мимо»
+  ERROR         // ошибка оценки, будет повторена
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  source       Source
+  externalId   String      // id заказа на площадке или chatId:messageId для Telegram
+  url          String
+  title        String
+  description  String
+  budgetRub    Int?        // бюджет, если удалось распознать
+  budgetText   String?     // бюджет как есть
+  author       String?     // канал/заказчик
+  offersCount  Int?        // число откликов (Kwork)
+  publishedAt  DateTime?
+  fetchedAt    DateTime    @default(now())
+  contentHash  String      // хеш нормализованного текста: ловит одинаковые заказы из разных источников
+  status       OrderStatus @default(NEW)
+  filterReason String?
+  nicheTags    String[]    @default([])
+
+  // результат LLM
+  fit          String?     // yes | maybe | no
+  fitReason    String?
+  summary      String?     // суть заказа одной строкой
+  estHours     Float?      // середина вилки, по ней считается ставка
+  estHoursMin  Float?
+  estHoursMax  Float?
+  questions    String[]    @default([])  // что уточнить у заказчика
+  estRateRub   Int?        // ₽/час = бюджет / часы
+  redFlags     String[]    @default([])
+  draftReply   String?
+  llmRaw       Json?
+  scoreAttempts Int        @default(0)
+
+  tgMessageId  Int?        // сообщение в боте
+  decidedAt    DateTime?
+
+  @@unique([source, externalId])
+  @@index([contentHash])
+  @@index([status])
+}
+
+// Курсоры источников (последний прочитанный id сообщения в канале и т.п.) и счётчик сбоев
+model SourceState {
+  key          String   @id // например "telegram:@channel" или "kwork"
+  cursor       String?
+  failures     Int      @default(0)
+  lastError    String?
+  lastOkAt     DateTime?
+  alertedAt    DateTime?
+  updatedAt    DateTime @updatedAt
+}
