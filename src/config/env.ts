@@ -39,6 +39,22 @@ export const envSchema = z.object({
   LLM_MODEL: z.string().default('deepseek/deepseek-chat'),
   LLM_TIMEOUT_MS: z.coerce.number().int().default(60000),
   LLM_MAX_PER_RUN: z.coerce.number().int().min(1).default(30),
+  LLM_MAX_TOKENS: z.coerce.number().int().min(200).max(8000).default(1500),
+  // Доп. поля запроса как JSON, например {"thinking":{"type":"disabled"}} для моделей с режимом размышлений
+  LLM_EXTRA_BODY: z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return {};
+      try {
+        const o = JSON.parse(v);
+        if (o && typeof o === 'object' && !Array.isArray(o)) return o as Record<string, unknown>;
+      } catch {}
+      ctx.addIssue({ code: 'custom', message: 'LLM_EXTRA_BODY должен быть JSON-объектом' });
+      return z.NEVER;
+    }),
+  // response_format=json_object поддерживают не все провайдеры
+  LLM_JSON_MODE: bool.default('true'),
 
   // Прокси для заблокированных направлений: http://user:pass@host:port или socks5://user:pass@host:port
   PROXY_URL: z.string().url().optional().or(z.literal('').transform(() => undefined)),

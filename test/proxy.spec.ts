@@ -23,6 +23,12 @@ describe('прокси', () => {
     expect(() => loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: '' })).toThrow(/BOT_TOKEN/);
     expect(loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: 'x', MIN_RATE_RUB: '', LLM_MODEL: '' })).toMatchObject({ MIN_RATE_RUB: 800, LLM_MODEL: 'deepseek/deepseek-chat' });
   });
+  it('LLM_EXTRA_BODY разбирается как JSON-объект', () => {
+    const base = { DATABASE_URL: 'x', BOT_TOKEN: 'x' };
+    expect(loadEnv({ ...base, LLM_EXTRA_BODY: '{"thinking":{"type":"disabled"}}' }).LLM_EXTRA_BODY).toEqual({ thinking: { type: 'disabled' } });
+    expect(loadEnv(base).LLM_EXTRA_BODY).toEqual({});
+    expect(() => loadEnv({ ...base, LLM_EXTRA_BODY: '[1]' })).toThrow(/LLM_EXTRA_BODY/);
+  });
   it('postJson отправляет JSON и возвращает ответ', async () => {
     const srv = createServer((req, res) => {
       let b = '';

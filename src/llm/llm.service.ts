@@ -85,8 +85,9 @@ export class LlmService {
         model: this.env.LLM_MODEL,
         messages: this.buildMessages(input),
         temperature: 0.3,
-        max_tokens: 1200,
-        response_format: { type: 'json_object' },
+        max_tokens: this.env.LLM_MAX_TOKENS,
+        ...(this.env.LLM_JSON_MODE ? { response_format: { type: 'json_object' } } : {}),
+        ...this.env.LLM_EXTRA_BODY,
       },
       { Authorization: `Bearer ${this.env.LLM_API_KEY}` },
       { agent: this.agent, timeoutMs: this.env.LLM_TIMEOUT_MS },
@@ -95,6 +96,12 @@ export class LlmService {
     if (res.status < 200 || res.status >= 300) throw new Error(`LLM HTTP ${res.status}: ${body.slice(0, 300)}`);
     const json = JSON.parse(body);
     const content: string = json.choices?.[0]?.message?.content ?? '';
+    if (!content.trim()) {
+      const reason = json.choices?.[0]?.finish_reason;
+      throw new Error(
+        `LLM вернул пустой ответ (finish_reason=${reason}). Если модель «думающая», отключите размышления через LLM_EXTRA_BODY или увеличьте LLM_MAX_TOKENS`,
+      );
+    }
     return { score: parseScore(content), raw: { content, usage: json.usage, model: json.model } };
   }
 }
