@@ -23,6 +23,9 @@ describe('прокси', () => {
     expect(() => loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: '' })).toThrow(/BOT_TOKEN/);
     expect(loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: 'x', MIN_RATE_RUB: '', LLM_MODEL: '' })).toMatchObject({ MIN_RATE_RUB: 800, LLM_MODEL: 'deepseek/deepseek-chat' });
   });
+  it('PROXY_URL со списком прокси даёт понятную ошибку', () => {
+    expect(() => loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: 'x', PROXY_URL: 'http://a:1,http://b:2' })).toThrow(/один адрес/);
+  });
   it('LLM_EXTRA_BODY разбирается как JSON-объект', () => {
     const base = { DATABASE_URL: 'x', BOT_TOKEN: 'x' };
     expect(loadEnv({ ...base, LLM_EXTRA_BODY: '{"thinking":{"type":"disabled"}}' }).LLM_EXTRA_BODY).toEqual({ thinking: { type: 'disabled' } });

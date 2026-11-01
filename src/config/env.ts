@@ -57,7 +57,11 @@ export const envSchema = z.object({
   LLM_JSON_MODE: bool.default('true'),
 
   // Прокси для заблокированных направлений: http://user:pass@host:port или socks5://user:pass@host:port
-  PROXY_URL: z.string().url().optional().or(z.literal('').transform(() => undefined)),
+  PROXY_URL: z
+    .string()
+    .refine((v) => !/[,\s]/.test(v.trim()), 'нужен один адрес прокси, а не список через запятую')
+    .pipe(z.string().url())
+    .optional(),
   // Что пускать через прокси
   BOT_USE_PROXY: bool.default('true'),
   LLM_USE_PROXY: bool.default('false'),
