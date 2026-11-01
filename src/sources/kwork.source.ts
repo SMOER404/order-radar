@@ -100,7 +100,7 @@ export function parseKworkJson(json: unknown): RawOrder[] {
       const budget = Math.max(priceLimit ?? 0, possible ?? 0) || undefined;
       const date = str(w.date_create) ?? str(w.dateCreate) ?? str(w.date_active) ?? str(w.dateView);
       const user = (w.user ?? {}) as Record<string, unknown>;
-      const offers = num(w.kwork_count) ?? num(w.offers) ?? num(w.views_dirty);
+      const offers = num(w.kwork_count) ?? num(w.offers);
       return {
         source: 'KWORK',
         externalId: id,
@@ -109,9 +109,10 @@ export function parseKworkJson(json: unknown): RawOrder[] {
         description: stripHtml(str(w.description) ?? str(w.desc) ?? ''),
         budgetRub: budget,
         budgetText: priceLimit
-          ? `до ${priceLimit} ₽${possible && possible !== priceLimit ? ` (допустимо ${possible} ₽)` : ''}${offers !== undefined ? `, откликов: ${offers}` : ''}`
+          ? `до ${priceLimit} ₽${possible && possible !== priceLimit ? ` (допустимо ${possible} ₽)` : ''}`
           : undefined,
         author: str(user.username) ?? str(w.username),
+        offersCount: offers,
         publishedAt: date ? parseKworkDate(date) : undefined,
       };
     })

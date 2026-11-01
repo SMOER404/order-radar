@@ -6,14 +6,28 @@ import { Filters } from '../config/filters';
 import { truncate } from '../common/text';
 import { createProxyAgent, postJson } from '../common/proxy';
 
-export const scoreSchema = z.object({
-  fit: z.enum(['yes', 'maybe', 'no']),
-  reason: z.string().default(''),
-  estHours: z.coerce.number().positive().max(2000).nullable().catch(null),
-  budgetRub: z.coerce.number().positive().nullable().catch(null),
-  redFlags: z.array(z.string()).default([]),
-  draft: z.string().default(''),
-});
+const hours = z.coerce.number().positive().max(2000).nullable().catch(null);
+
+export const scoreSchema = z
+  .object({
+    fit: z.enum(['yes', 'maybe', 'no']),
+    summary: z.string().default(''),
+    reason: z.string().default(''),
+    estHoursMin: hours.default(null),
+    estHoursMax: hours.default(null),
+    estHours: hours.default(null), // старый формат: одно число
+    budgetRub: z.coerce.number().positive().nullable().catch(null).default(null),
+    questions: z.array(z.string()).catch([]).default([]),
+    redFlags: z.array(z.string()).catch([]).default([]),
+    draft: z.string().default(''),
+  })
+  .transform((s) => {
+    const min = s.estHoursMin ?? s.estHours ?? s.estHoursMax;
+    const max = s.estHoursMax ?? s.estHours ?? s.estHoursMin;
+    const [lo, hi] = min !== null && max !== null && min > max ? [max, min] : [min, max];
+    const mid = lo !== null && hi !== null ? Math.round(((lo + hi) / 2) * 10) / 10 : null;
+    return { ...s, estHoursMin: lo, estHoursMax: hi, estHours: mid };
+  });
 export type Score = z.infer<typeof scoreSchema>;
 
 export interface ScoreInput {
@@ -50,8 +64,13 @@ export class LlmService {
       `Минимальная приемлемая ставка: ${this.env.MIN_RATE_RUB} ₽/час (с учётом общения и правок).`,
       '',
       'Формат ответа:',
-      '{"fit":"yes|maybe|no","reason":"1–2 предложения почему","estHours":число часов с учётом общения и правок или null,',
-      ' "budgetRub":бюджет заказчика в рублях если указан или null,"redFlags":["признаки мошенничества или плохого заказчика"],',
+      '{"fit":"yes|maybe|no",',
+      ' "summary":"что нужно заказчику, одной фразой до 100 символов, без воды",',
+      ' "reason":"почему подходит или нет, 1 предложение",',
+      ' "estHoursMin":оптимистичная оценка часов, "estHoursMax":реалистичная с учётом общения и правок (или null, если оценить нельзя),',
+      ' "budgetRub":бюджет заказчика в рублях если указан или null,',
+      ' "questions":["1–3 коротких вопроса заказчику, без ответа на которые нельзя назвать цену и срок"],',
+      ' "redFlags":["признаки мошенничества или плохого заказчика, коротко"],',
       ' "draft":"черновик отклика"}',
       '',
       'Правила:',
@@ -59,7 +78,7 @@ export class LlmService {
       '- redFlags: просьба писать в личку/WhatsApp до сделки, предоплата от исполнителя, «тестовое бесплатно»,',
       '  оплата после запуска/за отзыв, нереальные сроки, отсутствие ТЗ, подозрительно высокий бюджет за простую задачу.',
       '- draft: 3–6 предложений по-русски, на «вы», без шаблонных фраз и без «Здравствуйте, меня зовут».',
-      '  Первая фраза о задаче клиента. Коротко как будете делать, 1 релевантный опыт, срок, 1 уточняющий вопрос.',
+      '  Первая фраза о задаче клиента. Коротко как будете делать, 1 релевантный опыт, срок, самый важный вопрос из questions.',
       '  Цену не называй, если бюджет не указан. Не выдумывай кейсы, которых нет в профиле.',
     ].join('\n');
     const user = [

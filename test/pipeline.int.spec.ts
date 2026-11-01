@@ -8,6 +8,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { PipelineService } from '../src/pipeline/pipeline.service';
 import { loadEnv } from '../src/config/env';
 import { loadFilters } from '../src/config/filters';
+import { scoreSchema } from '../src/llm/llm.service';
 import type { OrderSource, RawOrder } from '../src/sources/types';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -38,9 +39,11 @@ describe.skipIf(!url)('конвейер (Postgres)', () => {
   const llm = {
     enabled: () => true,
     score: async (o: { title: string }) => ({
-      score: o.title.includes('Tiptap')
-        ? { fit: 'yes' as const, reason: 'ниша', estHours: 20, budgetRub: null, redFlags: [], draft: 'Сделаю' }
-        : { fit: 'yes' as const, reason: 'бот', estHours: 24, budgetRub: null, redFlags: [], draft: 'Сделаю бота' },
+      score: scoreSchema.parse(
+        o.title.includes('Tiptap')
+          ? { fit: 'yes', reason: 'ниша', estHoursMin: 16, estHoursMax: 24, draft: 'Сделаю', questions: ['Сроки?'] }
+          : { fit: 'yes', reason: 'бот', estHours: 24, draft: 'Сделаю бота' },
+      ),
       raw: {},
     }),
   };
@@ -72,7 +75,7 @@ describe.skipIf(!url)('конвейер (Postgres)', () => {
     // 12000 / 24 = 500 ₽/ч < 1000 → не шлём
     expect(by['1']).toMatchObject({ status: 'REJECTED', estRateRub: 500 });
     // ниша: 40000/20 = 2000 → шлём
-    expect(by['3']).toMatchObject({ status: 'NOTIFIED', nicheTags: ['editor'], estRateRub: 2000, tgMessageId: 100 + by['3'].id });
+    expect(by['3']).toMatchObject({ status: 'NOTIFIED', nicheTags: ['editor'], estRateRub: 2000, estHoursMin: 16, estHoursMax: 24, questions: ['Сроки?'], tgMessageId: 100 + by['3'].id });
     expect(sent).toEqual([by['3'].id]);
   });
 

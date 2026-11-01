@@ -76,6 +76,8 @@ export const envSchema = z.object({
 
   // Минимальная ставка ₽/час. Заказы с оценкой ниже не присылаются (если NOTIFY_BELOW_MIN_RATE=false)
   MIN_RATE_RUB: z.coerce.number().int().min(0).default(800),
+  // Желаемая ставка: по ней бот предлагает цену, если бюджет не указан
+  TARGET_RATE_RUB: z.coerce.number().int().min(0).default(1500),
   NOTIFY_BELOW_MIN_RATE: bool.default('false'),
   // Присылать ли заказы, где LLM ответил fit=no
   NOTIFY_REJECTED: bool.default('false'),

@@ -36,6 +36,7 @@ model Order {
   budgetRub    Int?        // бюджет, если удалось распознать
   budgetText   String?     // бюджет как есть
   author       String?     // канал/заказчик
+  offersCount  Int?        // число откликов (Kwork)
   publishedAt  DateTime?
   fetchedAt    DateTime    @default(now())
   contentHash  String      // хеш нормализованного текста: ловит одинаковые заказы из разных источников
@@ -46,7 +47,11 @@ model Order {
   // результат LLM
   fit          String?     // yes | maybe | no
   fitReason    String?
-  estHours     Float?
+  summary      String?     // суть заказа одной строкой
+  estHours     Float?      // середина вилки, по ней считается ставка
+  estHoursMin  Float?
+  estHoursMax  Float?
+  questions    String[]    @default([])  // что уточнить у заказчика
   estRateRub   Int?        // ₽/час = бюджет / часы
   redFlags     String[]    @default([])
   draftReply   String?

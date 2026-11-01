@@ -9,6 +9,7 @@ export interface RawOrder {
   budgetRub?: number;
   budgetText?: string;
   author?: string;
+  offersCount?: number;
   publishedAt?: Date;
 }
 

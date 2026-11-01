@@ -26,7 +26,7 @@ describe('Kwork', () => {
   it('разбирает AJAX-ответ', () => {
     const orders = parseKworkJson(json);
     expect(orders).toHaveLength(2);
-    expect(orders[0]).toMatchObject({ externalId: '2934811', budgetRub: 45000, author: 'client77', url: 'https://kwork.ru/projects/2934811/view' });
+    expect(orders[0]).toMatchObject({ externalId: '2934811', budgetRub: 45000, author: 'client77', offersCount: 4, budgetText: 'до 30000 ₽ (допустимо 45000 ₽)', url: 'https://kwork.ru/projects/2934811/view' });
     expect(orders[0].description).toBe('Нужен блочный редактор на Tiptap с таблицами и загрузкой картинок');
     expect(orders[0].publishedAt?.toISOString()).toBe('2026-11-01T08:20:00.000Z');
   });
@@ -103,6 +103,10 @@ describe('LLM-ответ', () => {
   it('достаёт JSON даже в ```-обёртке', () => {
     const s = parseScore('```json\n{"fit":"yes","reason":"ок","estHours":"6","budgetRub":null,"redFlags":[],"draft":"Текст"}\n```');
     expect(s).toMatchObject({ fit: 'yes', estHours: 6, draft: 'Текст' });
+  });
+  it('вилка часов: середина для ставки, перепутанные границы меняются местами', () => {
+    const s = parseScore('{"fit":"yes","summary":"Бот","estHoursMin":10,"estHoursMax":6,"questions":["Сроки?"]}');
+    expect(s).toMatchObject({ estHoursMin: 6, estHoursMax: 10, estHours: 8, summary: 'Бот', questions: ['Сроки?'] });
   });
   it('кривые числа превращает в null', () => {
     expect(parseScore('{"fit":"maybe","estHours":"не знаю"}').estHours).toBeNull();

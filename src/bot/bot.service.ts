@@ -5,6 +5,7 @@ import { ENV } from '../config/config.module';
 import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatOrder } from './format';
+import { escapeHtml } from '../common/text';
 import { createProxyAgent } from '../common/proxy';
 
 /** Бот только уведомляет. Кнопки «интересно / мимо» сохраняют решение в БД. Никаких автооткликов. */
@@ -77,10 +78,25 @@ export class BotService implements OnApplicationBootstrap, OnModuleDestroy {
       const status = action === 'i' ? 'INTERESTING' : 'SKIPPED';
       await this.prisma.order.update({ where: { id: Number(idStr) }, data: { status, decidedAt: new Date() } });
       await ctx.answerCallbackQuery({ text: action === 'i' ? 'Сохранил в «интересно»' : 'Мимо' });
+      const o = await this.prisma.order.findUnique({ where: { id: Number(idStr) } });
       const mark = new InlineKeyboard().text(action === 'i' ? '✅ Интересно' : '➖ Мимо', 'noop');
+      if (o?.draftReply) this.addDraftButton(mark, o);
       await ctx.editMessageReplyMarkup({ reply_markup: mark }).catch(() => undefined);
     });
     bot.callbackQuery('noop', (ctx) => ctx.answerCallbackQuery());
+
+    // Черновик длиннее 256 символов не влезает в кнопку копирования: присылаем отдельным сообщением,
+    // моноширинный текст в Telegram копируется одним нажатием
+    bot.callbackQuery(/^d:(\d+)$/, async (ctx) => {
+      if (!this.isOwner(ctx.chat?.id)) return ctx.answerCallbackQuery();
+      const o = await this.prisma.order.findUnique({ where: { id: Number(ctx.match![1]) } });
+      await ctx.answerCallbackQuery();
+      if (!o?.draftReply) return void (await ctx.reply('Черновика нет'));
+      await ctx.reply(`<code>${escapeHtml(o.draftReply)}</code>`, {
+        parse_mode: 'HTML',
+        reply_parameters: { message_id: ctx.callbackQuery.message!.message_id },
+      });
+    });
 
     bot.catch((err) => this.log.error(`Ошибка бота: ${String(err.error)}`));
   }
@@ -100,9 +116,19 @@ export class BotService implements OnApplicationBootstrap, OnModuleDestroy {
     return !!this.env.BOT_OWNER_CHAT_ID;
   }
 
+  private addDraftButton(kb: InlineKeyboard, o: Order) {
+    if (!o.draftReply) return kb;
+    // Bot API: copy_text — до 256 символов
+    return o.draftReply.length <= 256
+      ? kb.row().copyText('📋 Скопировать отклик', o.draftReply)
+      : kb.row().text('📋 Скопировать отклик', `d:${o.id}`);
+  }
+
   async sendOrder(o: Order): Promise<number> {
     const kb = new InlineKeyboard().text('👍 Интересно', `i:${o.id}`).text('👎 Мимо', `s:${o.id}`);
-    const msg = await this.bot.api.sendMessage(this.env.BOT_OWNER_CHAT_ID!, formatOrder(o, this.env.MIN_RATE_RUB), {
+    this.addDraftButton(kb, o);
+    const text = formatOrder(o, { minRate: this.env.MIN_RATE_RUB, targetRate: this.env.TARGET_RATE_RUB });
+    const msg = await this.bot.api.sendMessage(this.env.BOT_OWNER_CHAT_ID!, text, {
       parse_mode: 'HTML',
       reply_markup: kb,
       link_preview_options: { is_disabled: true },
