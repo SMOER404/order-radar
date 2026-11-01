@@ -7,6 +7,7 @@ import { Filters } from '../config/filters';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseBudgetRub, truncate } from '../common/text';
 import { OrderSource, RawOrder } from './types';
+import { gramjsProxy } from '../common/proxy';
 
 /**
  * Telegram-каналы через MTProto (GramJS) от отдельного аккаунта. Только чтение:
@@ -40,6 +41,7 @@ export class TelegramSource implements OrderSource, OnModuleDestroy {
     if (this.client?.connected) return this.client;
     this.client = new TelegramClient(new StringSession(this.env.TG_SESSION), this.env.TG_API_ID!, this.env.TG_API_HASH!, {
       connectionRetries: 3,
+      proxy: this.env.TG_USE_PROXY ? gramjsProxy(this.env.PROXY_URL) : undefined,
     });
     this.client.setLogLevel('error' as never);
     await this.client.connect();

@@ -61,6 +61,37 @@ docker compose logs -f app
 
 Обновление: `git pull && docker compose up -d --build`. Миграции применяются автоматически при старте.
 
+## Деплой без Docker (pm2 + существующий PostgreSQL)
+
+Подходит для сервера, где уже есть сайты, ISPmanager и свой Postgres: файрвол не трогается, место почти не тратится.
+Нужен Node.js 20.6+ и pm2.
+
+```bash
+# 1. база и пользователь (пароль сгенерируйте сами)
+sudo -u postgres psql -c "CREATE USER order_radar WITH PASSWORD '...';"
+sudo -u postgres psql -c "CREATE DATABASE order_radar OWNER order_radar;"
+
+# 2. код
+cd /opt/order-radar
+cp .env.example .env && nano .env   # DATABASE_URL, BOT_TOKEN, LLM_*, PROXY_URL
+npm ci && npx prisma generate && npm run build && npx prisma migrate deploy
+npm prune --omit=dev                # необязательно, экономит место
+
+# 3. запуск
+pm2 start ecosystem.config.js && pm2 save
+pm2 logs order-radar
+```
+
+Обновление: `npm ci && npx prisma generate && npm run build && npx prisma migrate deploy && pm2 restart order-radar`.
+
+## Прокси: Telegram и LLM из РФ
+
+С российских серверов `api.telegram.org` часто недоступен, а часть LLM-провайдеров (OpenRouter, OpenAI) отклоняет российские IP.
+
+- `PROXY_URL=socks5://user:pass@host:1080` (или `http://...`). Через него идут бот (`BOT_USE_PROXY`) и чтение каналов (`TG_USE_PROXY`, только SOCKS5). LLM через прокси — `LLM_USE_PROXY=true`.
+- Вместо прокси для бота можно поднять reverse-proxy на `api.telegram.org` на любом зарубежном сервере и указать его в `BOT_API_ROOT`.
+- LLM без прокси: выберите провайдера, который работает из РФ и даёт OpenAI-совместимый API, и пропишите `LLM_BASE_URL` / `LLM_MODEL`.
+
 ### Telegram-каналы
 
 ```bash

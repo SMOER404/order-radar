@@ -25,7 +25,7 @@ export const envSchema = z.object({
   KWORK_CATEGORIES: list.default('11'),
   KWORK_PAGES: z.coerce.number().int().min(1).max(5).default(1),
   TG_ENABLED: bool.default('false'),
-  TG_API_ID: z.coerce.number().int().optional(),
+  TG_API_ID: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().optional()),
   TG_API_HASH: z.string().optional(),
   TG_SESSION: z.string().optional(),
   // Каналы через запятую (@username или ссылка t.me/...). Можно также задать в filters.yaml
@@ -40,10 +40,19 @@ export const envSchema = z.object({
   LLM_TIMEOUT_MS: z.coerce.number().int().default(60000),
   LLM_MAX_PER_RUN: z.coerce.number().int().min(1).default(30),
 
+  // Прокси для заблокированных направлений: http://user:pass@host:port или socks5://user:pass@host:port
+  PROXY_URL: z.string().url().optional().or(z.literal('').transform(() => undefined)),
+  // Что пускать через прокси
+  BOT_USE_PROXY: bool.default('true'),
+  LLM_USE_PROXY: bool.default('false'),
+  TG_USE_PROXY: bool.default('true'),
+
   // Бот
+  // Свой адрес Bot API, если api.telegram.org недоступен (например, reverse-proxy на зарубежном сервере)
+  BOT_API_ROOT: z.string().url().optional().or(z.literal('').transform(() => undefined)),
   BOT_TOKEN: z.string().min(1),
   // Ваш chat id: узнать через /start в боте. Пока пусто, бот только отвечает на /start
-  BOT_OWNER_CHAT_ID: z.coerce.number().int().optional(),
+  BOT_OWNER_CHAT_ID: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().optional()),
 
   // Минимальная ставка ₽/час. Заказы с оценкой ниже не присылаются (если NOTIFY_BELOW_MIN_RATE=false)
   MIN_RATE_RUB: z.coerce.number().int().min(0).default(800),

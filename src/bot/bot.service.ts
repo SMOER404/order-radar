@@ -5,6 +5,7 @@ import { ENV } from '../config/config.module';
 import { Env } from '../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import { formatOrder } from './format';
+import { createProxyAgent } from '../common/proxy';
 
 /** Бот только уведомляет. Кнопки «интересно / мимо» сохраняют решение в БД. Никаких автооткликов. */
 @Injectable()
@@ -16,7 +17,13 @@ export class BotService implements OnApplicationBootstrap, OnModuleDestroy {
     @Inject(ENV) private readonly env: Env,
     private readonly prisma: PrismaService,
   ) {
-    this.bot = new Bot(env.BOT_TOKEN);
+    const agent = env.BOT_USE_PROXY ? createProxyAgent(env.PROXY_URL) : undefined;
+    this.bot = new Bot(env.BOT_TOKEN, {
+      client: {
+        ...(env.BOT_API_ROOT ? { apiRoot: env.BOT_API_ROOT.replace(/\/$/, '') } : {}),
+        ...(agent ? { baseFetchConfig: { agent, compress: true } } : {}),
+      },
+    });
     this.setup();
   }
 

@@ -4,6 +4,7 @@ import { ENV, FILTERS } from '../config/config.module';
 import { Env } from '../config/env';
 import { Filters } from '../config/filters';
 import { truncate } from '../common/text';
+import { createProxyAgent, postJson } from '../common/proxy';
 
 export const scoreSchema = z.object({
   fit: z.enum(['yes', 'maybe', 'no']),
@@ -28,11 +29,14 @@ export interface ScoreInput {
 @Injectable()
 export class LlmService {
   private readonly log = new Logger(LlmService.name);
+  private readonly agent;
 
   constructor(
     @Inject(ENV) private readonly env: Env,
     @Inject(FILTERS) private readonly filters: Filters,
-  ) {}
+  ) {
+    this.agent = env.LLM_USE_PROXY ? createProxyAgent(env.PROXY_URL) : undefined;
+  }
 
   enabled() {
     return this.env.LLM_ENABLED && !!this.env.LLM_API_KEY;
@@ -75,20 +79,20 @@ export class LlmService {
   }
 
   async score(input: ScoreInput): Promise<{ score: Score; raw: unknown }> {
-    const res = await fetch(`${this.env.LLM_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.env.LLM_API_KEY}` },
-      body: JSON.stringify({
+    const res = await postJson(
+      `${this.env.LLM_BASE_URL.replace(/\/$/, '')}/chat/completions`,
+      {
         model: this.env.LLM_MODEL,
         messages: this.buildMessages(input),
         temperature: 0.3,
         max_tokens: 1200,
         response_format: { type: 'json_object' },
-      }),
-      signal: AbortSignal.timeout(this.env.LLM_TIMEOUT_MS),
-    });
-    const body = await res.text();
-    if (!res.ok) throw new Error(`LLM HTTP ${res.status}: ${body.slice(0, 300)}`);
+      },
+      { Authorization: `Bearer ${this.env.LLM_API_KEY}` },
+      { agent: this.agent, timeoutMs: this.env.LLM_TIMEOUT_MS },
+    );
+    const body = res.text;
+    if (res.status < 200 || res.status >= 300) throw new Error(`LLM HTTP ${res.status}: ${body.slice(0, 300)}`);
     const json = JSON.parse(body);
     const content: string = json.choices?.[0]?.message?.content ?? '';
     return { score: parseScore(content), raw: { content, usage: json.usage, model: json.model } };
