@@ -68,7 +68,9 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export function loadEnv(raw: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = envSchema.safeParse(raw);
+  // «KEY=» в .env считаем отсутствующим значением, чтобы работали значения по умолчанию
+  const cleaned = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v.trim() !== ''));
+  const parsed = envSchema.safeParse(cleaned);
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Ошибка конфигурации (.env):\n${msg}`);

@@ -19,6 +19,10 @@ describe('прокси', () => {
     expect(env.PROXY_URL).toBeUndefined();
     expect(env.BOT_OWNER_CHAT_ID).toBeUndefined();
   });
+  it('пустой обязательный параметр даёт понятную ошибку, пустой необязательный — значение по умолчанию', () => {
+    expect(() => loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: '' })).toThrow(/BOT_TOKEN/);
+    expect(loadEnv({ DATABASE_URL: 'x', BOT_TOKEN: 'x', MIN_RATE_RUB: '', LLM_MODEL: '' })).toMatchObject({ MIN_RATE_RUB: 800, LLM_MODEL: 'deepseek/deepseek-chat' });
+  });
   it('postJson отправляет JSON и возвращает ответ', async () => {
     const srv = createServer((req, res) => {
       let b = '';

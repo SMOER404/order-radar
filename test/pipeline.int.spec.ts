@@ -34,7 +34,7 @@ describe.skipIf(!url)('конвейер (Postgres)', () => {
     { name: 'kwork', enabled: () => true, fetch: async () => { if (failKwork) throw new Error('HTTP 403'); return []; } },
   ];
 
-  const env = loadEnv({ DATABASE_URL: url!, BOT_TOKEN: 'x', BOT_OWNER_CHAT_ID: '1', MIN_RATE_RUB: '1000', SOURCE_ALERT_AFTER_FAILURES: '2' });
+  const env = loadEnv({ DATABASE_URL: url ?? 'not-set', BOT_TOKEN: 'x', BOT_OWNER_CHAT_ID: '1', MIN_RATE_RUB: '1000', SOURCE_ALERT_AFTER_FAILURES: '2' });
   const llm = {
     enabled: () => true,
     score: async (o: { title: string }) => ({

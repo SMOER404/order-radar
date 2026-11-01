@@ -9,7 +9,8 @@ import { KworkSource } from '../sources/kwork.source';
 import { applyFilters } from '../pipeline/filter';
 
 async function main() {
-  const env = loadEnv({ BOT_TOKEN: 'dry-run', DATABASE_URL: 'dry-run', ...process.env });
+  const nonEmpty = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v && v.trim() !== ''));
+  const env = loadEnv({ BOT_TOKEN: 'dry-run', DATABASE_URL: 'dry-run', ...nonEmpty });
   const filters = loadFilters(env.FILTERS_PATH);
   for (const src of [new FlSource(env), new KworkSource(env)]) {
     try {
