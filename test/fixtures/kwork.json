@@ -1,0 +1,4 @@
+{"success":true,"data":{"pagination":{"current_page":1,"last_page":3},"wants":[
+{"id":2934811,"name":"Редактор статей на Tiptap","description":"Нужен блочный редактор на &lt;b&gt;Tiptap&lt;/b&gt; с таблицами и загрузкой картинок","priceLimit":"30000","possiblePriceLimit":45000,"date_create":"2026-11-01 11:20:00","kwork_count":4,"user":{"username":"client77"}},
+{"id":2934812,"name":"Парсер Авито","description":"Собрать объявления в Google Sheets","priceLimit":"3000","date_create":"2026-11-01 11:00:00"}
+]}}
